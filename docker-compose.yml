@@ -1,0 +1,57 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_DB: therapydb
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  backend:
+    build: ./backend
+    volumes:
+      - ./backend:/app
+    ports:
+      - "5001:5000"
+    environment:
+      - DB_HOST=db
+      - DB_NAME=therapydb
+      - DB_USER=user
+      - DB_PASSWORD=pass
+      - OLLAMA_API=http://ollama:11434
+      - STRIPE_KEY=sk_test_1234
+    depends_on:
+      - db
+      - ollama
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    stdin_open: true
+    tty: true
+    depends_on:
+      - backend
+
+  ollama:
+    image: ollama/ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    entrypoint: >
+      /bin/sh -c "
+        ollama serve &
+        sleep 3 &&
+        ollama pull llama3.3:70b &&
+        tail -f /dev/null
+      "
+
+volumes:
+  db_data:
+  ollama_data:
